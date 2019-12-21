@@ -1,0 +1,54 @@
+defaultEntryPoints = ["https"]
+
+[entryPoints]
+  [entryPoints.https]
+    address = ":443"
+      [entryPoints.https.tls]
+  [entryPoints.https.auth.basic]
+    users = ["user:hash"]
+  [entryPoints.api]
+  address = ":8080"
+
+[api]
+entryPoint = "api"
+
+[acme]
+email = "burningice64@gmail.com"
+entryPoint = "https"
+storage = "/etc/traefik/acme/acme.json"
+caServer = "https://acme-v02.api.letsencrypt.org/directory"
+  [acme.dnsChallenge]
+  provider = "godaddy"
+  delayBeforeCheck = 10
+  [[acme.domains]]
+  main = "*.host.domain"
+
+[docker]
+  endpoint = "unix:///var/run/docker.sock"
+  domain = "docker.slashfix.me"
+  exposedByDefault = false
+
+
+[file]
+watch = true
+
+[backends]
+  [backends.backend1]
+    [backends.backend1.servers]
+      [backends.backend1.servers.server0]
+      url = "http://192.168.1.190"
+      weight = 10
+  [backends.backend2]
+    [backends.backend2.servers.server1]
+      url = "http://127.0.0.1:6060"
+
+[frontends]
+  [frontends.frontend1]
+  backend = "backend1"
+    [frontends.frontend1.routes]
+      [frontends.frontend1.routes.route0]
+      rule = "Host: slashfix.me"
+  [frontends.frontend2]
+  backend = "backend2"
+    [frontends.frontend2.routes.test_1]
+    rule = "Host: traefik.slashfix.me"

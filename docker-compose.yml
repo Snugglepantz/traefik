@@ -1,0 +1,238 @@
+version: "3"
+
+services:
+  traefik:
+    image: traefik:alpine
+    ports:
+      - 443:443
+      - 6060:8080
+    volumes:
+      - ${CONF_DIR}/traefik:/etc/traefik
+      - /var/run/docker.sock:/var/run/docker.sock
+    env_file:
+      - provider.env
+  whoami:
+    image: emilevauge/whoami
+    labels:
+      - traefik.enable=true
+      - traefik.frontend.rule=Host:whoami.host.domain
+  netdata:
+    image: netdata/netdata
+    hostname: host.domain # set to fqdn of host
+    ports:
+      - 19999:19999
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - apparmor:unconfined
+    labels:
+      - traefik.enable=true
+      - traefik.frontend.rule=Host:netdata.host.domain
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+  nzbget:
+    image: linuxserver/nzbget
+    container_name: nzbget
+    volumes:
+      - ${CONF_DIR}/nzbget:/config
+      - ${DATA_DIR}/Downloads:/downloads
+    ports:
+      - 6789:6789
+    env_file: uidgid.env
+    environment:
+      - VIRTUAL_HOST=nzbget.host.domain
+      - VIRTUAL_PORT=6789
+    labels:
+      - traefik.enable=true
+      - traefik.frontend.rule=Host:nzbget.host.domain
+    restart: always
+  sabnzbd:
+    image: linuxserver/sabnzbd:latest
+    container_name: sabnzbd
+    volumes:
+      - ${CONF_DIR}/sabnzbd:/config
+      - ${DATA_DIR}/Downloads/complete:/downloads
+      - ${DATA_DIR}/Downloads/incomplete:/incomplete-downloads
+    ports:
+      - 8080:8080
+    env_file: uidgid.env
+    environment:
+      - EDGE=1
+      - VIRTUAL_HOST=sabnzbd.host.domain
+      - VIRTUAL_PORT=8080
+    labels:
+      - traefik.enable=true
+      - traefik.frontend.rule=Host:sabnzbd.host.domain
+    restart: always
+
+  nzbhydra:
+    image: linuxserver/hydra
+    container_name: nzbhydra
+    volumes:
+      - ${CONF_DIR}/nzbhydra:/config
+      - ${DATA_DIR}/Downloads:/downloads
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - 5075:5075
+    env_file: uidgid.env
+    environment:
+      - VIRTUAL_HOST=nzbhydra.host.domain
+      - VIRTUAL_PORT=5075
+    labels:
+      - traefik.enable=true
+      - traefik.frontend.rule=Host:nzbhydra.host.domain
+    restart: always
+
+  jackett:
+    image: linuxserver/jackett
+    container_name: jackett
+    env_file: uidgid.env
+    environment:
+      - VIRTUAL_HOST=jacket.host.domain
+      - VIRTUAL_PORT=9117
+      - RUN_OPTS=run options here #optional
+    volumes:
+      - ${CONF_DIR}/jacket:/config
+      - ${DATA_DIR}/Downloads:/downloads
+    labels:
+      - traefik.enable=true
+      - traefik.frontend.rule=Host:jacket.host.domain
+    ports:
+      - 9117:9117
+    restart: always
+
+  qbittorrent:
+    image: linuxserver/qbittorrent
+    container_name: qbittorrent
+    env_file: uidgid.env
+    environment:
+      - WEBUI_PORT=6969
+      - VIRTUAL_HOST=qbt.host.domain
+      - VIRTUAL_PORT=6969
+    labels:
+      - traefik.enable=true
+      - traefik.frontend.rule=Host:qbt.host.domain
+      - traefik.port=6969
+    volumes:
+      - ${CONF_DIR}/qbittorrent:/config
+      - ${DATA_DIR}/Downloads:/downloads
+    ports:
+      - 6881:6881
+      - 6969:6969
+    restart: unless-stopped
+
+  sonarr:
+    image: linuxserver/sonarr
+    container_name: sonarr
+    volumes:
+      - ${CONF_DIR}/sonarr:/config
+      - /etc/localtime:/etc/localtime:ro
+      - ${DATA_DIR}/Downloads:/downloads
+      - ${DATA_DIR}/TV:/tv
+    ports:
+      - 8989:8989
+    env_file: uidgid.env
+    environment:
+      - VIRTUAL_HOST=sonarr.host.domain
+      - VIRTUAL_PORT=8989
+    labels:
+      - traefik.enable=true
+      - traefik.frontend.rule=Host:sonarr.host.domain
+    restart: always
+
+  radarr:
+    image: linuxserver/radarr
+    container_name: radarr
+    volumes:
+      - ${CONF_DIR}/radarr:/config
+      - ${DATA_DIR}/Movies:/movies
+      - ${DATA_DIR}/Downloads:/downloads
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - 7878:7878
+    env_file: uidgid.env
+    environment:
+      - VIRTUAL_HOST=radarr.host.domain
+      - VIRTUAL_PORT=7878
+    labels:
+      - traefik.enable=true
+      - traefik.frontend.rule=Host:radarr.host.domain
+    restart: always
+
+  lidarr:
+    image: linuxserver/lidarr
+    container_name: lidarr
+    env_file: uidgid.env
+    environment:
+      - VIRTUAL_HOST=lidarr.host.domain
+      - VIRTUAL_PORT=8686
+    labels:
+      - traefik.enable=true
+      - traefik.frontend.rule=Host:lidarr.host.domain
+    volumes:
+      - ${CONF_DIR}/lidarr:/config
+      - ${DATA_DIR}/Music:/music
+      - ${DATA_DIR}/Downloads:/downloads
+    ports:
+      - 8686:8686
+    restart: unless-stopped
+
+  piwigo:
+    image: linuxserver/piwigo
+    container_name: piwigo
+    env_file: uidgid.env
+    environment:
+      - VIRTUAL_HOST=piwigo.host.domain
+    labels:
+      - traefik.enable=true
+      - traefik.frontend.rule=Host:piwigo.host.domain
+    volumes:
+      - ${CONF_DIR}/piwigo:/config
+    restart: unless-stopped
+
+  plex:
+    image: linuxserver/plex
+    container_name: plex
+    volumes:
+      - ~/plexconfig:/config
+      - ${DATA_DIR}:/data
+    ports:
+      - 32469:32469
+      - 32400:32400
+      - 32401:32401
+      - 3005:3005
+      - 8324:8324
+      - 1900:1900/udp
+      - 32410:32410/udp
+      - 32412:32412/udp
+      - 32413:32413/udp
+      - 32414:32414/udp
+    env_file: uidgid.env
+    environment:
+      - VIRTUAL_HOST=plex.host.domain
+      - VIRTUAL_PORT=32400
+    labels:
+      - traefik.enable=true
+      - traefik.frontend.rule=Host:plex.host.domain
+      - traefik.port=32400
+    restart: always
+
+  plexpy:
+    image: linuxserver/plexpy
+    container_name: plexpy
+    volumes:
+      - ${CONF_DIR}/plexpy:/config
+      - /etc/localtime:/etc/localtime:ro
+      - ~/plexconfig/Library/Application Support/Plex Media Server/Logs:/logs:ro
+    ports:
+      - 8181:8181
+    env_file: uidgid.env
+    environment:
+      - VIRTUAL_HOST=plexpy.host.domain
+      - VIRTUAL_PORT=8181
+    labels:
+      - traefik.enable=true
+      - traefik.frontend.rule=Host:plexpy.host.domain
+    restart: always
